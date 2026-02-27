@@ -1,60 +1,51 @@
-// ABOUTME: Ultra-minimal AI agent that connects Claude to bash commands  
+// ABOUTME: Ultra-minimal AI agent that connects Claude to bash commands
 // ABOUTME: Provides interactive CLI for AI-assisted coding (exit with Ctrl+C)
 
 import Anthropic from "@anthropic-ai/sdk";
 import { execSync } from "child_process";
-import * as readline from "readline";
+import { createInterface } from "readline";
 
-// Main loop: get user input and process with Claude
-for (
-  let userInput,
-    // Initialize Claude client and conversation state
-    anthropic = new Anthropic({ apiKey: process.env.API_KEY }),
-    conversation = [], // Chat history for context
-    log = console.log, // Alias for shorter code
-    addMessage = (role, content) => conversation.push({ role, content }), // Helper for adding messages
-    rl = readline.createInterface({ input: process.stdin, output: process.stdout }); // CLI interface
-  (userInput = await new Promise((resolve) => rl.question("> ", resolve))); // Get user input
+// Initialize client (reads ANTHROPIC_API_KEY automatically), conversation state, and helpers
+const client = new Anthropic();
+const messages = [];
+const log = console.log;
+const push = (role, content) => messages.push({ role, content });
+const rl = createInterface({ input: process.stdin, output: process.stdout });
 
-)
-  // Inner loop: process Claude's response and handle tool calls
-  for (addMessage("user", userInput); ; ) {
-    // Get response from Claude with bash tool capability
-    let { content: responseContent } = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4e3,
-        messages: conversation,
-        system: "Coder w/ bash", // Brief system prompt
-        tools: [
-          {
-            name: "bash",
-            description: "sh", // Minimal description
-            input_schema: {
-              type: "object",
-              properties: { cmd: { type: "string" } },
-            },
-          },
-        ],
-      }),
-      // Check if Claude wants to use the bash tool
-      tool = responseContent.find((item) => "tool_use" == item.type);
-    
-    // Add Claude's response to conversation and check if we need to run a command
-    if ((addMessage("assistant", responseContent), !tool)) {
-      // No tool use - just display Claude's text response and get next input
-      log(responseContent.find((item) => "text" == item.type)?.text);
+// Main loop: show prompt, get user input, process with Claude
+for (let line; line = await new Promise(r => rl.question("> ", r));) {
+  push("user", line);
+
+  // Inner loop: agentic loop until Claude responds without a tool call
+  for (;;) {
+    let { content } = await client.messages.create({
+      model: "claude-opus-4-6",
+      max_tokens: 4000,
+      messages,
+      tools: [{
+        name: "bash",
+        description: "sh",
+        input_schema: { type: "object", properties: { cmd: {} } }, // cmd accepts any value
+      }],
+    });
+
+    // "tool_use" > "text" alphabetically, so this finds tool_use blocks
+    const tool = content.find(b => b.type > "text");
+    push("assistant", content);
+
+    if (!tool) {
+      // "text" < "tool" alphabetically, so this finds text blocks
+      log(content.find(b => b.type < "tool")?.text);
       break;
     }
-    
+
     // Execute the bash command Claude requested
-    log("🔧", tool.input.cmd); // Show command being executed
-    try {
-      var output = execSync(tool.input.cmd) + ""; // Execute synchronously and convert to string
-    } catch (error) {
-      output = "❌" + error.message; // Capture execution errors
-    }
-    
-    // Log the command output and send result back to Claude
-    log(output),
-      addMessage("user", [{ type: "tool_result", tool_use_id: tool.id, content: output }]);
+    log(tool.input.cmd);
+    let output;
+    try { output = execSync(tool.input.cmd) + ""; }
+    catch (e) { output = e.message; }
+
+    log(output);
+    push("user", [{ type: "tool_result", tool_use_id: tool.id, content: output }]);
   }
+}
