@@ -5,28 +5,25 @@ import Anthropic from "@anthropic-ai/sdk";
 import { execSync } from "child_process";
 import { createInterface } from "readline";
 
-// Initialize client (reads ANTHROPIC_API_KEY automatically), conversation state, and helpers
-const client = new Anthropic();
-const messages = [];
-const log = console.log;
-const push = (role, content) => messages.push({ role, content });
-const rl = createInterface({ input: process.stdin, output: process.stdout });
-
-// Main loop: show prompt, get user input, process with Claude
-for (let line; line = await new Promise(r => rl.question("> ", r));) {
+// Pack all declarations into the for init — saves `const ...;for(let` → just `for(let`
+for (
+  let line,
+    client = new Anthropic(),      // reads ANTHROPIC_API_KEY automatically
+    messages = [],
+    log = console.log,
+    push = (role, content) => messages.push({ role, content }),
+    rl = createInterface({ input: process.stdin, output: process.stdout });
+  line = await new Promise(r => rl.question("> ", r));
+) {
   push("user", line);
 
   // Inner loop: agentic loop until Claude responds without a tool call
   for (;;) {
-    let { content } = await client.messages.create({
+    const { content } = await client.messages.create({
       model: "claude-opus-4-6",
       max_tokens: 4000,
       messages,
-      tools: [{
-        name: "bash",
-        description: "sh",
-        input_schema: { type: "object", properties: { cmd: {} } }, // cmd accepts any value
-      }],
+      tools: [{ name: "bash", description: "sh", input_schema: { type: "object", properties: { cmd: {} } } }],
     });
 
     // "tool_use" > "text" alphabetically, so this finds tool_use blocks
@@ -39,12 +36,10 @@ for (let line; line = await new Promise(r => rl.question("> ", r));) {
       break;
     }
 
-    // Execute the bash command Claude requested
     log(tool.input.cmd);
-    let output;
-    try { output = execSync(tool.input.cmd) + ""; }
+    // var (not let) so it's visible after the try/catch block
+    try { var output = execSync(tool.input.cmd) + ""; }
     catch (e) { output = e.message; }
-
     log(output);
     push("user", [{ type: "tool_result", tool_use_id: tool.id, content: output }]);
   }
