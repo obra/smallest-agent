@@ -3,17 +3,12 @@
   "version": "1.0.0",
   "type": "module",
   "bin": {
-    "mini-agent": "./dist/agent.js"
+    "mini-agent": "./src/smallest-agent.js"
   },
   "scripts": {
-    "build": "tsc",
-    "start": "npm run build && node dist/agent.js"
+    "start": "node src/smallest-agent.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.1"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.6.0"
   }
 }
