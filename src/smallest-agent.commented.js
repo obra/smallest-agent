@@ -8,36 +8,36 @@ const client = new Anthropic(); // reads ANTHROPIC_API_KEY automatically
 const messages = [];
 const push = (role, content) => messages.push({ role, content });
 
-let output;
-let inputChunk;
+let turnInput;
+const stdout = process.stdout;
 
-process.stdout.write("> ");
+stdout.write("> ");
 
 // Each stdin chunk is one user turn (multi-line paste stays a single turn)
-for await (inputChunk of process.stdin) {
-  push("user", inputChunk + "");
+for await (turnInput of process.stdin) {
+  push("user", turnInput + "");
 
   // Agent loop continues until Claude responds without a tool call
   for (;;) {
-    const { content } = await client.messages.create({
+    let { content } = await client.messages.create({
       model: "claude-opus-4-6",
       max_tokens: 4000,
       messages,
       // names are short here because this file is the source for minification
-      tools: [{ name: "s", input_schema: { type: "object", properties: { c: {} } } }],
+      tools: [{ name: "sh", input_schema: { type: "object", properties: { c: {} } } }],
     });
 
-    const tool = content.at(-1);
+    const { input: toolInput, id: toolUseId } = content.at(-1);
     push("assistant", content);
 
-    if (!tool.input) {
-      console.log(content[0].text);
-      process.stdout.write("\n> ");
+    if (!toolInput) {
+      stdout.write(content[0].text + "\n> ");
       break;
     }
 
     // Route stderr into stdout; ':" prevents non-zero status from throwing
-    console.log(tool.input.c + "\n" + (output = execSync(tool.input.c + " 2>&1;:") + ""));
-    push("user", [{ type: "tool_result", tool_use_id: tool.id, content: output }]);
+    turnInput = execSync(toolInput.c + " 2>&1;:") + "";
+    stdout.write(toolInput.c + "\n" + turnInput + "\n");
+    push("user", [{ type: "tool_result", tool_use_id: toolUseId, content: turnInput }]);
   }
 }

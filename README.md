@@ -8,7 +8,7 @@ Then I set it upon itself.
 
 Over the course of 20 minutes, it golfed itself down to something pretty darn minimal.
 
-`src/smallest-agent.js` is currently 581 bytes.
+`src/smallest-agent.js` is currently 555 bytes.
 
 `src/smallest-agent.commented.js` is a commented version of the code with easier to read variable names.
 
