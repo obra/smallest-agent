@@ -1,16 +1,17 @@
 // ABOUTME: Readable source that minifies to src/smallest-agent.js byte-for-byte.
 
 import e from "@anthropic-ai/sdk";
-import { execSync as t } from "child_process";
+import t from "child_process";
 
 let i = new e,
+  p = process,
   n = [],
   // Push helper keeps every turn in Anthropic's messages array format.
   c = (e, t) => n.push({ role: e, content: t }),
   r;
 
 // Each stdin chunk is one user turn (multi-line paste remains one turn).
-for await (r of process.stdin) {
+for await (r of p.stdin) {
   // Keep calling Claude until the turn ends with plain text (no tool request).
   for (c("user", r + ""); ; ) {
     let { content: e } = await i.messages.create({
@@ -25,11 +26,11 @@ for await (r of process.stdin) {
 
     if (c("assistant", e), !u.id) {
       // End of turn: print assistant text and emit next prompt marker.
-      process.stdout.write(u.text + "\n> ");
+      p.stdout.write(u.text + "\n> ");
       break;
     }
 
     // ';:' forces a zero exit status so execSync never throws on bad commands.
-    c("user", [{ type: "tool_result", tool_use_id: u.id, content: t(u.input.c + ";:") + "" }]);
+    c("user", [{ type: "tool_result", tool_use_id: u.id, content: t.execSync(u.input.c + ";:") + "" }]);
   }
 }
