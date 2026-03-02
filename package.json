@@ -6,6 +6,7 @@
     "mini-agent": "./src/smallest-agent.js"
   },
   "scripts": {
+    "test": "bash scripts/smoke-test.sh",
     "start": "node src/smallest-agent.js"
   },
   "dependencies": {
